@@ -3,9 +3,8 @@ import SockJS from "sockjs-client";
 import { Stomp } from "@stomp/stompjs";
 
 function App() {
-  const [content, setContent] = useState("");
   const [stompClient, setStompClient] = useState(null);
-  const [fontSize, setFontSize] = useState("");
+  const [fontSize, setFontSize] = useState("3");
   const editorRef = useRef(null);
   const savedRangeRef = useRef(null);
 
@@ -19,7 +18,6 @@ function App() {
         (message) => {
           if (message.body) {
             const newContent = JSON.parse(message.body).content;
-            setContent(newContent);
             if (editorRef.current) {
               editorRef.current.innerHTML = newContent;
               restoreSelection();
@@ -42,7 +40,6 @@ function App() {
       .then((response) => response.json())
       .then((data) => {
         const newContent = data.content;
-        setContent(newContent);
         if (editorRef.current) {
           editorRef.current.innerHTML = newContent;
         }
@@ -59,6 +56,13 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (editorRef.current) {
+      document.execCommand("fontSize", false, fontSize);
+      editorRef.current.focus();
+    }
+  }, [fontSize]);
+
   const sendUpdate = (updateContent) => {
     if (stompClient && stompClient.connected) {
       const update = { content: updateContent };
@@ -73,12 +77,10 @@ function App() {
   const handleInput = () => {
     saveSelection();
     const newContent = editorRef.current.innerHTML;
-    setContent(newContent);
     sendUpdate(newContent);
   };
 
   const applyFormat = (command, value = null) => {
-    saveSelection();
     document.execCommand(command, false, value);
     handleInput();
   };
@@ -86,8 +88,9 @@ function App() {
   const handleFontSizeChange = (event) => {
     const newSize = event.target.value;
     setFontSize(newSize);
-    document.execCommand("fontSize", false, newSize);
-    handleInput();
+    saveSelection();
+    applyFormat("fontSize", newSize);
+    restoreSelection();
   };
 
   const saveSelection = () => {
@@ -164,12 +167,24 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    if (editorRef.current) {
-      editorRef.current.innerHTML = content;
-      restoreSelection();
+  const handleMouseDown = () => {
+    updateFontSize();
+  };
+
+  const handleMouseUp = () => {
+    updateFontSize();
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === "Enter") {
+      document.execCommand("insertHTML", false, "<br><br>");
+      event.preventDefault();
+    } else {
+      if (fontSize) {
+        document.execCommand("fontSize", false, fontSize);
+      }
     }
-  }, [content]);
+  };
 
   return (
     <div className="editor-container">
@@ -190,7 +205,7 @@ function App() {
           className="toolbar-select"
           value={fontSize}
           onChange={handleFontSizeChange}
-          onMouseDown={() => saveSelection()} // Save selection before showing dropdown
+          onMouseDown={saveSelection}
         >
           <option value="">--</option>
           {[1, 2, 3, 4, 5, 6, 7].map((size) => (
@@ -205,9 +220,10 @@ function App() {
         className="editor"
         contentEditable
         onInput={handleInput}
-        onClick={updateFontSize}
-        onKeyUp={updateFontSize}
-        onMouseUp={updateFontSize}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onClick={handleMouseDown}
+        onKeyDown={handleKeyDown}
       />
     </div>
   );
