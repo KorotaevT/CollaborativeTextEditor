@@ -57,9 +57,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (editorRef.current) {
+    if (editorRef.current && editorRef.current.innerHTML === "") {
       document.execCommand("fontSize", false, fontSize);
-      editorRef.current.focus();
     }
   }, [fontSize]);
 
@@ -77,6 +76,11 @@ function App() {
   const handleInput = () => {
     saveSelection();
     const newContent = editorRef.current.innerHTML;
+
+    if (!newContent) {
+      document.execCommand("fontSize", false, fontSize);
+    }
+
     sendUpdate(newContent);
   };
 
@@ -158,11 +162,9 @@ function App() {
         if (parentElement && parentElement.nodeName === "FONT") {
           const size = parentElement.size;
           setFontSize(size);
-        } else {
-          setFontSize("");
+        } else if (parentElement && parentElement.closest('.editor')) {
+          document.execCommand("fontSize", false, fontSize);
         }
-      } else {
-        setFontSize("");
       }
     }
   };
@@ -177,8 +179,38 @@ function App() {
 
   const handleKeyDown = (event) => {
     if (event.key === "Enter") {
-      document.execCommand("insertHTML", false, "<br><br>");
       event.preventDefault();
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const startContainer = range.startContainer;
+        const startOffset = range.startOffset;
+
+        if (startContainer.nodeType === Node.TEXT_NODE) {
+          if (startOffset === startContainer.length) {
+            const newElement = document.createElement("div");
+            newElement.appendChild(document.createElement("br"));
+            range.insertNode(newElement);
+            range.setStartAfter(newElement);
+          } else {
+            const textNode = startContainer.splitText(startOffset);
+            const newElement = document.createElement("div");
+            newElement.appendChild(textNode);
+            range.insertNode(newElement);
+            range.setStartAfter(newElement);
+          }
+        } else {
+          const newElement = document.createElement("div");
+          newElement.appendChild(document.createElement("br"));
+          range.insertNode(newElement);
+          range.setStartAfter(newElement);
+        }
+
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        document.execCommand("fontSize", false, fontSize);
+      }
     } else {
       if (fontSize) {
         document.execCommand("fontSize", false, fontSize);
