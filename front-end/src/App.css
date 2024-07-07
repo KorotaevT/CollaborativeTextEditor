@@ -5,19 +5,24 @@ body {
 }
 
 .header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
   background-color: #0078d7;
   color: #fff;
   padding: 10px 20px;
+  z-index: 1000;
 }
 
 .header-button {
   background: none;
   border: none;
   color: #fff;
-  font-size: 16px;
+  font-size: 22px;
   cursor: pointer;
   position: relative;
 }
@@ -63,7 +68,7 @@ body {
 
 .file-switch {
   position: absolute;
-  right: -150px;  
+  right: -150px;
   top: 25%;
   width: 150px;
   padding: 5px;
@@ -83,7 +88,6 @@ body {
   margin-right: 10px;
 }
 
-
 .no-file {
   color: red;
   font-weight: bold;
@@ -92,28 +96,33 @@ body {
 }
 
 .editor-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 20px;
+  padding-top: 140px;
+  width: 210mm;
+  height: 200mm;
+  max-width: 210mm;
+  max-height: 297mm;
+  margin: auto;
+  overflow: auto;
 }
 
 .toolbar {
+  position: fixed;
+  top: 52px;
+  left: 0;
+  right: 0;
   display: flex;
-  justify-content: flex-start;
-  width: 100%;
-  max-width: 800px;
+  justify-content: center;
   background-color: #fff;
   border: 1px solid #ccc;
   padding: 10px;
-  margin-bottom: 10px;
+  z-index: 999;
 }
 
 .toolbar-button {
   background-color: #fff;
   border: 1px solid #ccc;
   padding: 5px 10px;
-  margin-right: 5px;
+  margin-right: 10px;
   cursor: pointer;
   transition: background-color 0.3s ease;
 }
@@ -125,17 +134,79 @@ body {
 .toolbar-select {
   border: 1px solid #ccc;
   padding: 5px 10px;
-  margin-right: 5px;
+  margin-right: 10px;
 }
 
 .editor {
   width: 100%;
-  max-width: 800px;
-  height: 600px;
+  height:100%;
   padding: 10px;
   border: 1px solid #ccc;
   background-color: #fff;
   font-size: 16px;
   line-height: 1.5;
   overflow-y: auto;
+}
+
+.document-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  gap: 16px;
+}
+
+.document-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(25% - 8px);
+  padding: 16px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  background-color: white;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+
+.document-card:hover {
+  background-color: #f0f0f0;
+}
+
+.filename {
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.editor:focus {
+  outline: none;
+}
+
+.editor:focus-within {
+  box-shadow: none;
+}
+
+.homepage-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px;
+}
+
+.add-file-button {
+  background-color: #0078d7;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.add-file-button:hover {
+  background-color: #005ea5;
 }

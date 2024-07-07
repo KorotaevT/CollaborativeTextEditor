@@ -1,75 +1,71 @@
 package ru.cs.korotaev.CollaborativeTextEditor.service
 
 import jakarta.servlet.http.HttpServletResponse
+import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
 import ru.cs.korotaev.CollaborativeTextEditor.dto.DocumentUpdate
+import ru.cs.korotaev.CollaborativeTextEditor.model.Document
+import ru.cs.korotaev.CollaborativeTextEditor.repository.DocumentRepository
 import java.io.File
 
 @Service
-class DocumentService {
+class DocumentService(
 
-    private var filePath = "documents/document.txt"
-    private var documentContent: String = loadDocumentContent()
+    private val documentRepository: DocumentRepository,
+    private val simpMessagingTemplate: SimpMessagingTemplate
+
+    ) {
 
     fun updateDocument(update: DocumentUpdate): DocumentUpdate {
-        filePath = "documents/${update.fileName}.txt"
-        documentContent = update.content
-        saveDocumentContent(documentContent)
-        return update
+        val document = documentRepository.findById(update.id)
+            .orElseThrow { RuntimeException("Document not found") }
+        val filePath = "documents/${update.id}.txt"
+        saveDocumentContent(filePath, update.content)
+        simpMessagingTemplate.convertAndSend("/topic/updates/${update.id}", update)
+        return DocumentUpdate(update.id, document.name, update.content)
     }
 
-    fun getDocumentContent(fileName: String): String {
-        val file = File("documents/$fileName.txt")
+    fun getDocumentContent(id: Long): String {
+        val file = File("documents/$id.txt")
         return if (file.exists()) {
             file.readText()
         } else {
-            throw RuntimeException("Файл не найден")
+            throw RuntimeException("File not found")
         }
     }
 
-    fun renameDocument(oldName: String, newName: String) {
-        val file = File("documents/$oldName.txt")
-        val newFile = File(file.parent, "$newName.txt")
-        if (file.renameTo(newFile)) {
-            filePath = newFile.path
-        } else {
-            throw RuntimeException("Не удалось переименовать файл")
-        }
+    fun getDocumentName(id: Long): String {
+        return documentRepository.findById(id).get().name
     }
 
-    fun createDocument(newName: String) {
-        val newFile = File("documents/$newName.txt")
-        newFile.createNewFile()
-        filePath = newFile.path
-        documentContent = ""
+    fun renameDocument(id: Long, newName: String) {
+        val document = documentRepository.findById(id)
+            .orElseThrow { RuntimeException("Document not found") }
+        documentRepository.save(document.copy(name = newName))
     }
 
-    fun downloadTxt(response: HttpServletResponse) {
+    fun createDocument(name: String): Document {
+        val document = documentRepository.save(Document(name = name))
+        val filePath = "documents/${document.id}.txt"
+        saveDocumentContent(filePath, "")
+        return document
+    }
+
+    fun downloadTxt(response: HttpServletResponse, id: Long) {
+        val content = getDocumentContent(id)
         response.contentType = "text/plain"
         response.setHeader("Content-Disposition", "attachment; filename=document.txt")
-        response.writer.write(documentContent)
+        response.writer.write(content)
     }
 
-    fun listDocuments(): List<String> {
-        val folder = File("documents")
-        return folder.listFiles { file -> file.isFile && file.extension == "txt" }
-            ?.map { it.nameWithoutExtension }
-            ?: emptyList()
+    fun listDocuments(): List<Document> {
+        return documentRepository.findAll()
     }
 
-    private fun saveDocumentContent(content: String) {
+    private fun saveDocumentContent(filePath: String, content: String) {
         val file = File(filePath)
         file.parentFile.mkdirs()
         file.writeText(content)
-    }
-
-    private fun loadDocumentContent(): String {
-        val file = File(filePath)
-        return if (file.exists()) {
-            file.readText()
-        } else {
-            ""
-        }
     }
 
 }
