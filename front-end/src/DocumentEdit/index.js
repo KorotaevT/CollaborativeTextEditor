@@ -7,6 +7,7 @@ function DocumentEdit() {
   const { id } = useParams();
   const [stompClient, setStompClient] = useState(null);
   const [fontSize, setFontSize] = useState("3");
+  const [isConnected, setIsConnected] = useState(false);
   const navigate = useNavigate();
   const navigateRef = useRef(navigate);
   const [fileExists, setFileExists] = useState(false);
@@ -21,15 +22,19 @@ function DocumentEdit() {
     const client = Stomp.over(socket);
 
     client.debug = () => {};
-  
+
     client.connect(
       {},
       () => {
+        setIsConnected(true);
+        setStompClient(client);
 
         fetch("/api/listDocuments")
-        .then((response) => response.json())
-        .then((data) => setFileList(data))
-        .catch((error) => console.error("Error fetching document list:", error));
+          .then((response) => response.json())
+          .then((data) => setFileList(data))
+          .catch((error) =>
+            console.error("Error fetching document list:", error)
+          );
 
         client.subscribe(
           `/topic/updates/${id}`,
@@ -45,7 +50,7 @@ function DocumentEdit() {
             }
           }
         );
-  
+
         client.subscribe("/topic/renameDocument", (message) => {
           const data = JSON.parse(message.body);
           setFileList(
@@ -54,12 +59,12 @@ function DocumentEdit() {
             )
           );
         });
-  
+
         client.subscribe("/topic/newDocument", (message) => {
           const newFile = JSON.parse(message.body);
           setFileList((prevFileList) => [...prevFileList, newFile]);
         });
-  
+
         if (id) {
           fetch(`/api/getDocument/${id}`)
             .then((response) => {
@@ -86,9 +91,7 @@ function DocumentEdit() {
         console.error("Connection error:", error);
       }
     );
-  
-    setStompClient(client);
-  
+
     return () => {
       if (client) {
         try {
@@ -99,7 +102,7 @@ function DocumentEdit() {
       }
     };
   }, [id, fileList]);
-  
+
   useEffect(() => {
     if (id && fileList.length > 0) {
       const file = fileList.find((file) => file.id === id);
@@ -107,7 +110,7 @@ function DocumentEdit() {
         setFileName(file.name);
       }
     }
-  }, [id, fileList]);  
+  }, [id, fileList]);
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML === "") {
@@ -132,11 +135,9 @@ function DocumentEdit() {
   }, []);
 
   const sendUpdate = (updateContent) => {
-    if (stompClient && stompClient.connected) {
+    if (stompClient && isConnected) {
       const update = { id, name: fileName, content: updateContent };
       try {
-        console.log(id);
-        console.log(update);
         stompClient.send(
           "/app/updateDocument/" + id,
           {},
@@ -315,7 +316,7 @@ function DocumentEdit() {
         }
         break;
       case "new":
-        const newFileName = prompt("Введите новое имя файла:");
+        const newFileName = prompt("Введите имя нового файла:");
         if (newFileName) {
           fetch(`/api/newDocument/${newFileName}`, {
             method: "POST",
@@ -325,23 +326,26 @@ function DocumentEdit() {
                 alert("Ошибка при создании нового файла");
               } else {
                 response.json().then((newFile) => {
-                  stompClient.send(
-                    "/app/newDocument",
-                    {},
-                    JSON.stringify(newFile)
-                  );
                   setFileList([...fileList, newFile]);
                   navigate(`/edit/${newFile.id}`);
                 });
               }
             })
-            .catch((error) =>
-              console.error("Error creating new document:", error)
-            );
+            .catch((error) => {
+              console.error("Error creating new document:", error);
+            });
         }
         break;
+
       case "downloadTxt":
-        window.open(`/api/downloadTxt/${id}`, "_blank");
+        const plainText = editorRef.current.innerText;
+        const element = document.createElement("a");
+        const file = new Blob([plainText], { type: "text/plain" });
+        element.href = URL.createObjectURL(file);
+        element.download = `${fileName}.txt`;
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
         break;
       default:
         break;
@@ -374,7 +378,7 @@ function DocumentEdit() {
             <button onClick={() => handleFileAction("rename")}>
               Переименовать
             </button>
-            <button onClick={() => console.log(fileList)}>Новый файл</button>
+            <button onClick={() => handleFileAction("new")}>Новый файл</button>
             <button onClick={() => handleFileAction("downloadTxt")}>
               Скачать .txt
             </button>
