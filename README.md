@@ -12,6 +12,9 @@ Backend: Kotlin, Spring Framework
 Локальное развёртывание:
 
 1)Запустить Docker
-2)Создать образ postgres с базой данных при помощи команды docker run --name textEditorDb -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=textEditorDb -p 5432:5432 -d postgres:14
-3)Перейти в папку back-end, открыть с помощью IntellijIdea и запустить проект
-3)Перейти в папку front-end, открыть там консоль и прописать npm start
+
+2)В основной папке проекта (где находится docker-compose.yml) открыть консоль и написать docker-compose up --build
+
+3)Дождаться конца сборки и запуска образа
+
+4)Открыть браузер и перейти по адресу localhost или localhost:80
