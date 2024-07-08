@@ -6,10 +6,10 @@
 
 ## Стек технологий:
 
-Frontend: JavaScript, React
-Backend: Kotlin, Spring Framework
-База данных: PostgreSQL
-Развертывание: Docker
+- Frontend: JavaScript, React
+- Backend: Kotlin, Spring Framework
+- База данных: PostgreSQL
+- Развертывание: Docker
 
 ## Локальное развёртывание:
 
