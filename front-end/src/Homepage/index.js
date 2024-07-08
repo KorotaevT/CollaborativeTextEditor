@@ -8,7 +8,7 @@ function Homepage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const socket = new SockJS("http://localhost:8080/ws");
+    const socket = new SockJS("/ws");
     const client = Stomp.over(socket);
 
     client.debug = () => {};
@@ -19,12 +19,14 @@ function Homepage() {
         fetch("/api/listDocuments")
           .then((response) => response.json())
           .then((data) => setFileList(data))
-          .catch((error) => console.error("Error fetching document list:", error));
+          .catch((error) =>
+            console.error("Error fetching document list:", error)
+          );
 
         client.subscribe("/topic/renameDocument", (message) => {
           const data = JSON.parse(message.body);
-          setFileList(
-            fileList.map((file) =>
+          setFileList((prevFileList) =>
+            prevFileList.map((file) =>
               file.id === data.id ? { ...file, name: data.newName } : file
             )
           );
@@ -32,7 +34,7 @@ function Homepage() {
 
         client.subscribe("/topic/newDocument", (message) => {
           const newFile = JSON.parse(message.body);
-          setFileList([...fileList, newFile]);
+          setFileList((prevFileList) => [...prevFileList, newFile]);
         });
       },
       (error) => {
@@ -49,7 +51,7 @@ function Homepage() {
         }
       }
     };
-  }, [fileList]);
+  }, []);
 
   const handleCardClick = (fileId) => {
     navigate(`/edit/${fileId}`);
@@ -66,7 +68,7 @@ function Homepage() {
             alert("Ошибка при создании нового файла");
           } else {
             response.json().then((newFile) => {
-              setFileList([...fileList, newFile]);
+              setFileList((prevFileList) => [...prevFileList, newFile]);
               navigate(`/edit/${newFile.id}`);
             });
           }

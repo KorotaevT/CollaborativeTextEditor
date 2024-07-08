@@ -18,7 +18,7 @@ function DocumentEdit() {
   const savedRangeRef = useRef(null);
 
   useEffect(() => {
-    const socket = new SockJS("http://localhost:8080/ws");
+    const socket = new SockJS("/ws");
     const client = Stomp.over(socket);
 
     client.debug = () => {};
@@ -36,8 +36,8 @@ function DocumentEdit() {
             console.error("Error fetching document list:", error)
           );
 
-        client.subscribe(
-          `/topic/updates/${id}`,
+          client.subscribe(
+            `/topic/updates/${id}`,
           (message) => {
             if (message.body) {
               const newContent = JSON.parse(message.body).content;

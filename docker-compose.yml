@@ -1,23 +1,32 @@
-version: '3.8'
-
 services:
-  zookeeper:
-    image: zookeeper:3.7
-    container_name: zookeeper
+  back-end:
+    build:
+      context: back-end
+      dockerfile: Dockerfile
     ports:
-      - "2181:2181"
-
-  kafka:
-    image: confluentinc/cp-kafka:6.2.1
-    container_name: kafka
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
+      - 8080:8080
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      DB_URL: jdbc:postgresql://postgres-container/textEditorDb
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      - postgres-container
+  front-end:
+    build:
+      context: front-end
+      dockerfile: Dockerfile
+    ports:
+      - 80:3000
+    depends_on:
+      - back-end
+  postgres-container:
+    image: postgres
+    volumes:
+      - dbdata:/var/lib/postgres
+    environment:
+      POSTGRES_DB: textEditorDb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+volumes:
+  dbdata:
