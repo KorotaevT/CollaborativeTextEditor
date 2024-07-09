@@ -19,7 +19,7 @@ function DocumentEdit() {
 
   useEffect(() => {
     const socket = new SockJS("/ws");
-    const client = Stomp.over(socket);
+    const client = Stomp.over(() => socket);
 
     client.debug = () => {};
 
@@ -36,12 +36,14 @@ function DocumentEdit() {
             console.error("Error fetching document list:", error)
           );
 
-          client.subscribe(
-            `/topic/updates/${id}`,
+        client.subscribe(
+          `/topic/updates/${id}`,
           (message) => {
             if (message.body) {
               const newContent = JSON.parse(message.body).content;
-              setContent(newContent);
+              if (editorRef.current.innerHTML !== newContent) {
+                setContent(newContent);
+              }
             }
           },
           (error) => {
@@ -53,7 +55,7 @@ function DocumentEdit() {
 
         client.subscribe("/topic/renameDocument", (message) => {
           const data = JSON.parse(message.body);
-          setFileList(
+          setFileList((fileList) =>
             fileList.map((file) =>
               file.id === data.id ? { ...file, name: data.newName } : file
             )
@@ -74,8 +76,7 @@ function DocumentEdit() {
               return response.json();
             })
             .then((data) => {
-              const newContent = data.content;
-              setContent(newContent);
+              setContent(data.content);
               setFileName(data.name);
               setFileExists(true);
             })
@@ -101,7 +102,7 @@ function DocumentEdit() {
         }
       }
     };
-  }, [id, fileList]);
+  }, [id]);
 
   useEffect(() => {
     if (id && fileList.length > 0) {
@@ -117,15 +118,6 @@ function DocumentEdit() {
       document.execCommand("fontSize", false, fontSize);
     }
   }, [fontSize]);
-
-  useEffect(() => {
-    if (id && fileList.length > 0) {
-      const file = fileList.find((file) => file.id === id);
-      if (file) {
-        setFileName(file.name);
-      }
-    }
-  }, [id, fileList]);
 
   useEffect(() => {
     fetch("/api/listDocuments")
@@ -157,12 +149,10 @@ function DocumentEdit() {
       document.execCommand("fontSize", false, fontSize);
     }
 
-    const selection = window.getSelection();
-
     setContent(newContent);
 
     setTimeout(() => {
-      restoreSelection(selection);
+      restoreSelection();
       sendUpdate(newContent);
     }, 0);
   };
@@ -363,12 +353,13 @@ function DocumentEdit() {
     { value: "8", label: "48pt" },
     { value: "9", label: "72pt" },
   ];
-
+  
   const handleClearDocument = () => {
     setContent("");
     sendUpdate("");
   };
-
+  
+  
   return (
     <div className="App">
       <div className="header">
@@ -434,7 +425,7 @@ function DocumentEdit() {
               ))}
             </select>
           </div>
-
+  
           <div
             className="editor"
             contentEditable
