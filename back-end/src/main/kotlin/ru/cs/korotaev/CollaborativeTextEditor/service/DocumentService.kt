@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletResponse
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
 import ru.cs.korotaev.CollaborativeTextEditor.dto.DocumentUpdate
+import ru.cs.korotaev.CollaborativeTextEditor.dto.RenameRequest
 import ru.cs.korotaev.CollaborativeTextEditor.model.Document
 import ru.cs.korotaev.CollaborativeTextEditor.repository.DocumentRepository
 import java.io.File
@@ -38,16 +39,18 @@ class DocumentService(
         return documentRepository.findById(id).get().name
     }
 
-    fun renameDocument(id: Long, newName: String) {
-        val document = documentRepository.findById(id)
+    fun renameDocument(request:RenameRequest) {
+        val document = documentRepository.findById(request.id)
             .orElseThrow { RuntimeException("Document not found") }
-        documentRepository.save(document.copy(name = newName))
+        simpMessagingTemplate.convertAndSend("/topic/renameDocument", RenameRequest(request.id, request.newName))
+        documentRepository.save(document.copy(name = request.newName))
     }
 
     fun createDocument(name: String): Document {
         val document = documentRepository.save(Document(name = name))
         val filePath = "documents/${document.id}.txt"
         saveDocumentContent(filePath, "")
+        simpMessagingTemplate.convertAndSend("/topic/newDocument", document)
         return document
     }
 

@@ -41,7 +41,7 @@ class DocumentController(
 
     @PostMapping("/renameDocument")
     fun renameDocument(@RequestBody request: RenameRequest): ResponseEntity<Any> {
-        documentService.renameDocument(request.id, request.newName)
+        documentService.renameDocument(request)
         return ResponseEntity.ok().build()
     }
 
