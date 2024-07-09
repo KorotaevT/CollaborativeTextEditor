@@ -1,17 +1,24 @@
-Веб-приложение для совместной работы над документами
+# Веб-приложение для совместной работы над документами
 
-Функционал: Веб-редактор текста, предназначенный для совместной работы над документами. ии документа.
+## Функционал: 
 
-Стек технологий:
+Веб-редактор текста, предназначенный для совместной работы над документами. ии документа.
 
-Frontend: JavaScript, React
-Backend: Kotlin, Spring Framework
-База данных: PostgreSQL
-Развертывание: Docker
+## Стек технологий:
 
-Локальное развёртывание:
+- Frontend: JavaScript, React
+- Backend: Kotlin, Spring Framework
+- База данных: PostgreSQL
+- Развертывание: Docker
 
-1)Запустить Docker
-2)Создать образ postgres с базой данных при помощи команды docker run --name textEditorDb -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=textEditorDb -p 5432:5432 -d postgres:14
-3)Перейти в папку back-end, открыть с помощью IntellijIdea и запустить проект
-3)Перейти в папку front-end, открыть там консоль и прописать npm start
+## Локальное развёртывание:
+
+- Запустите Docker
+
+- В основной папке проекта (где находится docker-compose.yml) откройте консоль
+
+- Пропишите в консоли команду docker-compose up --build
+
+- Дождитесь конца сборки и запуска образа
+
+- Откройте браузер и перейдите по адресу localhost или localhost:80
