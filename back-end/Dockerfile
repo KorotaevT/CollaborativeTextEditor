@@ -8,6 +8,12 @@ COPY build.gradle.kts .
 
 RUN chmod +x gradlew
 
+# Устанавливаем dos2unix
+RUN apt-get update && apt-get install -y dos2unix
+
+# Преобразуем конец строки в файлах Gradle
+RUN dos2unix gradlew gradle/wrapper/gradle-wrapper.properties build.gradle.kts
+
 # Проверка наличия необходимых файлов
 RUN ls -la
 RUN ls -la gradle/wrapper
