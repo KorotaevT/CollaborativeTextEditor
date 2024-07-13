@@ -1,15 +1,22 @@
 import React, { useEffect, useState, useRef } from "react";
-import SockJS from "sockjs-client";
 import { useParams, useNavigate } from "react-router-dom";
+import SockJS from "sockjs-client";
 import { Stomp } from "@stomp/stompjs";
+import ReconnectingWebSocket from 'reconnecting-websocket';
+import { useInterval } from "../util/useInterval";
+import { useUser } from "../UserProvider";
+import validateToken from "../util/tokenValidator";
+import ajax from "../Services/fetchService";
 
 function DocumentEdit() {
   const { id } = useParams();
+  const user = useUser();
+  const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+  const userRef = useRef(user);
   const [stompClient, setStompClient] = useState(null);
   const [fontSize, setFontSize] = useState("3");
   const [isConnected, setIsConnected] = useState(false);
-  const navigate = useNavigate();
-  const navigateRef = useRef(navigate);
   const [fileExists, setFileExists] = useState(false);
   const [fileName, setFileName] = useState("");
   const [content, setContent] = useState("");
@@ -18,100 +25,108 @@ function DocumentEdit() {
   const savedRangeRef = useRef(null);
 
   useEffect(() => {
+    userRef.current = user;
+    navigateRef.current = navigate;
+  }, [user, navigate]);
+
+  useEffect(() => {
+    const checkTokenAndFetchData = async () => {
+      const isValid = await validateToken(userRef.current.jwt);
+      if (!isValid) {
+        userRef.current.setJwt(null);
+        navigateRef.current("/login");
+      }
+    };
+
+    checkTokenAndFetchData();
+  }, [userRef, navigateRef]);
+
+  useInterval(async () => {
+    const isValid = await validateToken(userRef.current.jwt);
+    if (!isValid) {
+      userRef.current.setJwt(null);
+      navigateRef.current("/login");
+    }
+  }, 60000);
+
+  useEffect(() => {
     const socket = new SockJS("/ws");
     const client = Stomp.over(() => socket);
-
-    client.debug = () => {};
-
+    
+    client.reconnect_delay = 60000;
+    
     client.connect(
-      {},
-      () => {
-        setIsConnected(true);
-        setStompClient(client);
+        {
+            Authorization: `Bearer ${user.jwt}`,
+        },
+        () => {
+            setIsConnected(true);
+            setStompClient(client);
 
-        fetch("/api/listDocuments")
-          .then((response) => response.json())
-          .then((data) => setFileList(data))
-          .catch((error) =>
-            console.error("Error fetching document list:", error)
-          );
+            ajax("/api/listDocuments", "GET", user.jwt)
+                .then((data) => setFileList(data))
+                .catch((error) => console.error("Error fetching document list:", error));
 
-        client.subscribe(
-          `/topic/updates/${id}`,
-          (message) => {
-            if (message.body) {
-              const newContent = JSON.parse(message.body).content;
-              if (editorRef.current.innerHTML !== newContent) {
-                setContent(newContent);
-              }
-            }
-          },
-          (error) => {
-            if (!error.message.includes("ERR_STREAM_WRITE_AFTER_END")) {
-              console.error(error);
-            }
-          }
-        );
-
-        client.subscribe("/topic/renameDocument", (message) => {
-          const data = JSON.parse(message.body);
-          setFileList((fileList) =>
-            fileList.map((file) =>
-              file.id === data.id ? { ...file, name: data.newName } : file
-            )
-          );
-        });
-
-        client.subscribe("/topic/newDocument", (message) => {
-          const newFile = JSON.parse(message.body);
-          setFileList((prevFileList) => [...prevFileList, newFile]);
-        });
-
-        if (id) {
-          fetch(`/api/getDocument/${id}`)
-            .then((response) => {
-              if (!response.ok) {
-                throw new Error("Файл не найден");
-              }
-              return response.json();
-            })
-            .then((data) => {
-              setContent(data.content);
-              setFileName(data.name);
-              setFileExists(true);
-            })
-            .catch((error) => {
-              console.error(error);
-              setFileExists(false);
+            client.subscribe(`/topic/updates/${id}`, (message) => {
+                if (message.body) {
+                    const newContent = JSON.parse(message.body).content;
+                    if (editorRef.current.innerHTML !== newContent) {
+                        setContent(newContent);
+                    }
+                }
             });
-        } else {
-          setFileExists(false);
+
+            client.subscribe("/topic/renameDocument", (message) => {
+                const data = JSON.parse(message.body);
+                setFileList((prevFileList) =>
+                    prevFileList.map((file) =>
+                        file.id === data.id ? { ...file, name: data.newName } : file
+                    )
+                );
+            });
+
+            client.subscribe("/topic/newDocument", (message) => {
+                const newFile = JSON.parse(message.body);
+                setFileList((prevFileList) => [...prevFileList, newFile]);
+            });
+
+            if (id) {
+                ajax(`/api/getDocument/${id}`, "GET", user.jwt)
+                    .then((data) => {
+                        setContent(data.content);
+                        setFileName(data.name);
+                        setFileExists(true);
+                    })
+                    .catch((error) => {
+                        console.error(error);
+                        setFileExists(false);
+                    });
+            } else {
+                setFileExists(false);
+            }
+        },
+        (error) => {
+            console.error("Connection error:", error);
         }
-      },
-      (error) => {
-        console.error("Connection error:", error);
-      }
     );
 
     return () => {
-      if (client) {
-        try {
-          client.disconnect();
-        } catch (error) {
-          console.error("Disconnection error:", error);
+        if (client) {
+            try {
+                client.disconnect();
+            } catch (error) {
+                console.error("Disconnection error:", error);
+            }
         }
-      }
     };
-  }, [id]);
+}, [id, user.jwt]);
 
   useEffect(() => {
-    if (id && fileList.length > 0) {
-      const file = fileList.find((file) => file.id === id);
-      if (file) {
-        setFileName(file.name);
-      }
+    const file = fileList.find((file) => file.id === id);
+    if (file) {
+      setFileName(file.name);
     }
-  }, [id, fileList]);
+  }, [fileList, id]);
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML === "") {
@@ -120,15 +135,20 @@ function DocumentEdit() {
   }, [fontSize]);
 
   useEffect(() => {
-    fetch("/api/listDocuments")
-      .then((response) => response.json())
+    ajax("/api/listDocuments", "GET", user.jwt)
       .then((data) => setFileList(data))
       .catch((error) => console.error("Error fetching document list:", error));
-  }, []);
+  }, [user.jwt]);
 
   const sendUpdate = (updateContent) => {
-    if (stompClient && isConnected) {
-      const update = { id, name: fileName, content: updateContent };
+    const update = {
+      id,
+      name: fileName,
+      content: updateContent,
+      creatorUsername: "123",
+    };
+  
+    if (stompClient && stompClient.connected) {
       try {
         stompClient.send(
           "/app/updateDocument/" + id,
@@ -140,7 +160,7 @@ function DocumentEdit() {
       }
     }
   };
-
+  
   const handleInput = () => {
     saveSelection();
     const newContent = editorRef.current.innerHTML;
@@ -277,13 +297,7 @@ function DocumentEdit() {
       case "rename":
         const newName = prompt("Введите новое имя файла:");
         if (newName) {
-          fetch("/api/renameDocument", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ id, newName }),
-          })
+          ajax("/api/renameDocument", "POST", user.jwt, { id, newName })
             .then((response) => {
               if (!response.ok) {
                 alert("Ошибка при переименовании файла");
@@ -306,25 +320,7 @@ function DocumentEdit() {
         }
         break;
       case "new":
-        const newFileName = prompt("Введите имя нового файла:");
-        if (newFileName) {
-          fetch(`/api/newDocument/${newFileName}`, {
-            method: "POST",
-          })
-            .then((response) => {
-              if (!response.ok) {
-                alert("Ошибка при создании нового файла");
-              } else {
-                response.json().then((newFile) => {
-                  setFileList([...fileList, newFile]);
-                  navigate(`/edit/${newFile.id}`);
-                });
-              }
-            })
-            .catch((error) => {
-              console.error("Error creating new document:", error);
-            });
-        }
+        handleAddNewFile();
         break;
 
       case "downloadTxt":
@@ -342,6 +338,31 @@ function DocumentEdit() {
     }
   };
 
+  const handleAddNewFile = async () => {
+    const newFileName = prompt("Введите имя нового файла:");
+    if (newFileName) {
+      try {
+        const userInfo = await ajax("/api/userInfo", "GET", user.jwt);
+        const creatorId = userInfo.id;
+        ajax("/api/newDocument", "POST", user.jwt, {
+          name: newFileName,
+          creatorId,
+        })
+          .then((newFile) => {
+            setFileList((prevFileList) => [...prevFileList, newFile]);
+            navigate(`/edit/${newFile.id}`);
+          })
+          .catch((error) => {
+            console.error("Error creating new document:", error);
+            alert("Ошибка при создании нового файла");
+          });
+      } catch (error) {
+        console.error("Ошибка получения информации о пользователе:", error);
+        alert("Не удалось получить информацию о пользователе");
+      }
+    }
+  };
+
   const fontSizes = [
     { value: "1", label: "8pt" },
     { value: "2", label: "10pt" },
@@ -353,13 +374,12 @@ function DocumentEdit() {
     { value: "8", label: "48pt" },
     { value: "9", label: "72pt" },
   ];
-  
+
   const handleClearDocument = () => {
     setContent("");
     sendUpdate("");
   };
-  
-  
+
   return (
     <div className="App">
       <div className="header">
@@ -425,7 +445,7 @@ function DocumentEdit() {
               ))}
             </select>
           </div>
-  
+
           <div
             className="editor"
             contentEditable

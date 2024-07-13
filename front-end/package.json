@@ -25,6 +25,7 @@
     "react-icons": "^5.2.0",
     "react-router-dom": "^6.21.1",
     "react-scripts": "^5.0.1",
+    "reconnecting-websocket": "^4.4.0",
     "sockjs-client": "^1.6.1",
     "stompjs": "^2.3.3",
     "web-vitals": "^3.5.2"
