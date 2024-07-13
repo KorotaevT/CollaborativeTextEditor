@@ -1,7 +1,4 @@
 import "./App.css";
-import { useEffect, useState } from "react";
-import { jwtDecode } from "jwt-decode";
-import { useUser } from "./UserProvider";
 import { Route, Routes } from "react-router-dom";
 import Homepage from "./Homepage";
 import DocumentEdit from "./DocumentEdit";

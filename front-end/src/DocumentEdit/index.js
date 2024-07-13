@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import SockJS from "sockjs-client";
 import { Stomp } from "@stomp/stompjs";
-import ReconnectingWebSocket from 'reconnecting-websocket';
 import { useInterval } from "../util/useInterval";
 import { useUser } from "../UserProvider";
 import validateToken from "../util/tokenValidator";

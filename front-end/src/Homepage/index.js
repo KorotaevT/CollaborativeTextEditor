@@ -22,6 +22,12 @@ const Homepage = () => {
 
   useEffect(() => {
     const checkTokenAndFetchData = async () => {
+
+      if (!userRef.current.jwt) {
+        navigateRef.current("/login");
+        return;
+      }
+
       const isValid = await validateToken(userRef.current.jwt);
       if (!isValid) {
         userRef.current.setJwt(null);
@@ -33,6 +39,12 @@ const Homepage = () => {
   }, [userRef, navigateRef]);
 
   useInterval(async () => {
+
+    if (!userRef.current.jwt) {
+      navigateRef.current("/login");
+      return;
+    }
+
     const isValid = await validateToken(userRef.current.jwt);
     if (!isValid) {
       userRef.current.setJwt(null);
@@ -41,6 +53,12 @@ const Homepage = () => {
   }, 60000);
 
   useEffect(() => {
+
+    if (!user.jwt) {
+      navigate("/login");
+      return;
+    }
+
     const socket = new SockJS("/ws");
     const client = Stomp.over(socket);
 
