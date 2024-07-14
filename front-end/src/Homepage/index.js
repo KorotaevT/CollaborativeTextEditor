@@ -258,6 +258,7 @@ const Homepage = () => {
                     <Button
                       variant="danger"
                       className="delete-btn mt-2"
+                      style={{ width: "auto", alignSelf: "center" }}
                       onClick={() => handleDeleteFile(file.id)}
                     >
                       Удалить
@@ -267,7 +268,7 @@ const Homepage = () => {
               ))}
             </div>
           ) : (
-            <div></div>
+            <div className="text-center mt-4">Сейчас нет доступных документов.</div>
           )}
         </Col>
       </Row>
