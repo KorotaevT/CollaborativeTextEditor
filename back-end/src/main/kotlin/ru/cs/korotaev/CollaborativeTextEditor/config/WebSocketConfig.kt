@@ -1,5 +1,6 @@
 package ru.cs.korotaev.CollaborativeTextEditor.config
 
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Configuration
 import org.springframework.messaging.Message
 import org.springframework.messaging.MessageChannel
@@ -21,7 +22,8 @@ import ru.cs.korotaev.CollaborativeTextEditor.service.JwtService
 @EnableWebSocketMessageBroker
 class WebSocketConfig(
     private val jwtService: JwtService,
-    private val userDetailsService: UserDetailsService
+    private val userDetailsService: UserDetailsService,
+    @Value("\${cors.allowed.origins}") private val allowedOrigins: String
 ) : WebSocketMessageBrokerConfigurer {
 
     override fun configureMessageBroker(config: MessageBrokerRegistry) {
@@ -30,7 +32,8 @@ class WebSocketConfig(
     }
 
     override fun registerStompEndpoints(registry: StompEndpointRegistry) {
-        registry.addEndpoint("/ws").setAllowedOrigins("http://front-end", "http://localhost", "http://localhost:3000").withSockJS()
+        registry.addEndpoint("/ws").setAllowedOrigins(*allowedOrigins.split(",").toTypedArray())
+            .withSockJS()
             .setStreamBytesLimit(1024 * 1024)
             .setHttpMessageCacheSize(1000)
             .setDisconnectDelay(60000)

@@ -8,6 +8,7 @@ import ru.cs.korotaev.CollaborativeTextEditor.model.Document
 import ru.cs.korotaev.CollaborativeTextEditor.repository.DocumentRepository
 import ru.cs.korotaev.CollaborativeTextEditor.repository.UserRepository
 import java.io.File
+import java.io.IOException
 import java.util.*
 
 @Service
@@ -40,7 +41,6 @@ class DocumentService(
     fun addActiveUser(documentId: Long, username: String) {
         activeUsers.computeIfAbsent(documentId) { mutableSetOf() }.add(username)
         activeUsers[documentId]?.let { simpMessagingTemplate.convertAndSend("/topic/activeUsers/$documentId", it) }
-        println(activeUsers)
     }
 
     fun removeActiveUser(documentId: Long, username: String) {
@@ -87,9 +87,17 @@ class DocumentService(
     }
 
     private fun saveDocumentContent(filePath: String, content: String) {
-        val file = File(filePath)
-        file.parentFile.mkdirs()
-        file.writeText(content)
+        try {
+            val file = File(filePath)
+            if (!file.parentFile.exists()) {
+                if (!file.parentFile.mkdirs()) {
+                    throw IOException("Failed to create parent directories")
+                }
+            }
+            file.writeText(content)
+        } catch (e: IOException) {
+            throw RuntimeException("Failed to save document content", e)
+        }
     }
 
     fun deleteDocument(id: Long) {
@@ -99,6 +107,14 @@ class DocumentService(
         File(filePath).delete()
         documentRepository.delete(document)
         simpMessagingTemplate.convertAndSend("/topic/deleteDocument", document)
+    }
+
+    fun getActiveUserUsernameById(id: Long): String {
+        val userOptional = userRepository.findById(id)
+        if (userOptional.isEmpty) {
+            throw RuntimeException("User not found with id: $id")
+        }
+        return userOptional.get().username
     }
 
 }

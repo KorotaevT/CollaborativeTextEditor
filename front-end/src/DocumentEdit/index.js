@@ -66,8 +66,39 @@ function DocumentEdit() {
       {
         Authorization: `Bearer ${user.jwt}`,
       },
-      () => {
+      async () => {
         setStompClient(client);
+
+        try {
+          const userInfo = await ajax("/api/userInfo", "GET", user.jwt);
+
+          if (id) {
+            ajax(`/api/getDocument/${id}`, "GET", user.jwt)
+              .then((data) => {
+                setContent(data.content);
+                setFileName(data.name);
+                setFileExists(true);
+                console.log("Sending connect message");
+                client.send(
+                  `/app/activeUsers/${id}`,
+                  {},
+                  JSON.stringify({
+                    documentId: parseInt(id),
+                    userId: userInfo.id,
+                    action: "connect",
+                  })
+                );
+              })
+              .catch((error) => {
+                console.error(error);
+                setFileExists(false);
+              });
+          } else {
+            setFileExists(false);
+          }
+        } catch (error) {
+          console.error("Error fetching user info:", error);
+        }
 
         ajax("/api/listDocuments", "GET", user.jwt)
           .then((data) => setFileList(data))
@@ -101,8 +132,6 @@ function DocumentEdit() {
 
         client.subscribe("/topic/deleteDocument", (message) => {
           const deletedDocument = JSON.parse(message.body);
-          console.log(deletedDocument)
-          console.log(id)
           if (deletedDocument.id == id) {
             alert("Этот файл был удален.");
             navigateRef.current("/");
@@ -114,30 +143,6 @@ function DocumentEdit() {
           setActiveUsers(activeUsers);
           console.log(activeUsers);
         });
-
-        if (id) {
-          ajax(`/api/getDocument/${id}`, "GET", user.jwt)
-            .then((data) => {
-              setContent(data.content);
-              setFileName(data.name);
-              setFileExists(true);
-              console.log("Sending connect message");
-              client.send(
-                `/app/activeUsers/${id}`,
-                {},
-                JSON.stringify({
-                  username: userRef.current.username,
-                  action: "connect",
-                })
-              );
-            })
-            .catch((error) => {
-              console.error(error);
-              setFileExists(false);
-            });
-        } else {
-          setFileExists(false);
-        }
       },
       (error) => {
         console.error("Connection error:", error);
@@ -146,20 +151,24 @@ function DocumentEdit() {
 
     return () => {
       if (client) {
-        try {
-          console.log("Sending disconnect message");
-          client.send(
-            `/app/activeUsers/${id}`,
-            {},
-            JSON.stringify({
-              username: userRef.current.username,
-              action: "disconnect",
-            })
-          );
-          client.disconnect();
-        } catch (error) {
-          console.error("Disconnection error:", error);
-        }
+        (async () => {
+          try {
+            const userInfo = await ajax("/api/userInfo", "GET", user.jwt);
+            console.log("Sending disconnect message");
+            client.send(
+              `/app/activeUsers/${id}`,
+              {},
+              JSON.stringify({
+                documentId: parseInt(id),
+                userId: userInfo.id,
+                action: "disconnect",
+              })
+            );
+            client.disconnect();
+          } catch (error) {
+            console.error("Disconnection error:", error);
+          }
+        })();
       }
     };
   }, [id, user.jwt]);
@@ -388,7 +397,7 @@ function DocumentEdit() {
       try {
         await ajax(`/api/deleteDocument/${id}`, "DELETE", user.jwt).then(() => {
           if (fileList.find((file) => file.id === id)) {
-          stompClient.send("/app/deleteDocument", {}, JSON.stringify({ id }));
+            stompClient.send("/app/deleteDocument", {}, JSON.stringify({ id }));
           }
         });
       } catch (error) {
@@ -456,7 +465,7 @@ function DocumentEdit() {
           <div className="filename mx-2">Документ: {fileName}</div>
           <Dropdown>
             <Dropdown.Toggle variant="primary" id="activeUsersDropdown">
-              Активные пользователи
+              Активные пользователи: {activeUsers.length}
             </Dropdown.Toggle>
             <Dropdown.Menu style={{ minWidth: "fit-content" }}>
               {activeUsers.length > 0 ? (

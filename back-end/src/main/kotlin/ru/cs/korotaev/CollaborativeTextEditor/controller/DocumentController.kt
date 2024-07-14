@@ -5,9 +5,11 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.messaging.handler.annotation.DestinationVariable
 import org.springframework.messaging.handler.annotation.MessageMapping
+import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.messaging.handler.annotation.SendTo
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
+import ru.cs.korotaev.CollaborativeTextEditor.dto.ActiveUserDTO
 import ru.cs.korotaev.CollaborativeTextEditor.dto.DocumentUpdate
 import ru.cs.korotaev.CollaborativeTextEditor.dto.NewDocumentRequest
 import ru.cs.korotaev.CollaborativeTextEditor.dto.RenameRequest
@@ -32,10 +34,10 @@ class DocumentController(
     }
 
     @MessageMapping("/activeUsers/{documentId}")
-    @SendTo("/topic/activeUsers/{id}")
-    fun handleActiveUsers(@DestinationVariable documentId: Long, payload: Map<String, String>) {
-        val username = payload["username"] ?: return
-        val action = payload["action"] ?: return
+    @SendTo("/topic/activeUsers/{documentId}")
+    fun handleActiveUsers(@DestinationVariable documentId: Long, @Payload activeUserDTO: ActiveUserDTO) {
+        val username = documentService.getActiveUserUsernameById(activeUserDTO.userId)
+        val action = activeUserDTO.action
 
         if (action == "connect") {
             documentService.addActiveUser(documentId, username)
