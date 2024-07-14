@@ -91,6 +91,7 @@ function DocumentEdit() {
               file.id === data.id ? { ...file, name: data.newName } : file
             )
           );
+          setFileName(data.newName);
         });
 
         client.subscribe("/topic/newDocument", (message) => {
@@ -100,7 +101,9 @@ function DocumentEdit() {
 
         client.subscribe("/topic/deleteDocument", (message) => {
           const deletedDocument = JSON.parse(message.body);
-          if (deletedDocument.id === id) {
+          console.log(deletedDocument)
+          console.log(id)
+          if (deletedDocument.id == id) {
             alert("Этот файл был удален.");
             navigateRef.current("/");
           }
@@ -336,8 +339,9 @@ function DocumentEdit() {
         const newName = prompt("Введите новое имя файла:");
         if (newName) {
           ajax("/api/renameDocument", "POST", user.jwt, { id, newName })
-            .then((response) => {
-              if (!response.ok) {
+            .then((data) => {
+              console.log(data);
+              if (!data) {
                 alert("Ошибка при переименовании файла");
               } else {
                 console.log("Файл успешно переименован");
@@ -383,8 +387,9 @@ function DocumentEdit() {
     if (confirmDelete) {
       try {
         await ajax(`/api/deleteDocument/${id}`, "DELETE", user.jwt).then(() => {
+          if (fileList.find((file) => file.id === id)) {
           stompClient.send("/app/deleteDocument", {}, JSON.stringify({ id }));
-          navigateRef.current("/");
+          }
         });
       } catch (error) {
         console.error("Ошибка при удалении файла:", error);
