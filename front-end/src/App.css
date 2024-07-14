@@ -19,12 +19,8 @@ body {
 }
 
 .header-button {
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 22px;
-  cursor: pointer;
-  position: relative;
+  font-size: 18px;
+  margin: 0 10px;
 }
 
 .dropdown-menu {
@@ -45,14 +41,6 @@ body {
   padding: 10px;
   cursor: pointer;
   text-align: left;
-}
-
-.dropdown-menu button:hover {
-  background-color: #f0f0f0;
-}
-
-.header-button:hover .dropdown-menu {
-  display: block;
 }
 
 .file-switch-container {
@@ -97,12 +85,9 @@ body {
 
 .editor-container {
   padding-top: 140px;
-  width: 210mm;
-  height: 200mm;
-  max-width: 210mm;
-  max-height: 297mm;
+  width: 800px;
   margin: auto;
-  overflow: auto;
+  position: relative;
 }
 
 .toolbar {
@@ -116,36 +101,51 @@ body {
   border: 1px solid #ccc;
   padding: 10px;
   z-index: 999;
+  gap: 10px;
 }
 
 .toolbar-button {
-  background-color: #fff;
-  border: 1px solid #ccc;
-  padding: 5px 10px;
-  margin-right: 10px;
+  background-color: #0078d7;
+  color: white;
+  border: none;
+  padding: 10px 20px;
   cursor: pointer;
   transition: background-color 0.3s ease;
+  margin-right: 10px;
 }
 
 .toolbar-button:hover {
-  background-color: #e0e0e0;
+  background-color: #005ea5;
 }
 
 .toolbar-select {
   border: 1px solid #ccc;
   padding: 5px 10px;
-  margin-right: 10px;
+}
+
+.editor-container {
+  padding-top: 140px;
+  width: 800px;
+  margin: auto;
+  position: relative;
 }
 
 .editor {
   width: 100%;
-  height:100%;
+  height: 800px;
   padding: 10px;
   border: 1px solid #ccc;
   background-color: #fff;
-  font-size: 16px;
+  font-family: 'Colibri', sans-serif;
+  font-size: 14px;
   line-height: 1.5;
   overflow-y: auto;
+}
+
+.editor:focus,
+.editor:focus-within {
+  outline: none;
+  box-shadow: none;
 }
 
 .document-list {
@@ -171,23 +171,16 @@ body {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-
 .document-card:hover {
   background-color: #f0f0f0;
 }
 
 .filename {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: bold;
+  padding-left: 30px;
 }
 
-.editor:focus {
-  outline: none;
-}
-
-.editor:focus-within {
-  box-shadow: none;
-}
 
 .homepage-container {
   display: flex;
@@ -209,4 +202,38 @@ body {
 
 .add-file-button:hover {
   background-color: #005ea5;
+}
+
+.active-users {
+  position: fixed;
+  top: 52px;
+  right: 0;
+  width: 200px;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.active-users-container {
+  position: sticky;
+  top: 52px;
+}
+
+
+.container-fluid {
+  padding: 0;
+}
+
+textarea {
+  width: 100%;
+  height: 100%;
+  border: none;
+  resize: none;
+}
+
+.card {
+  margin-top: 20px;
 }

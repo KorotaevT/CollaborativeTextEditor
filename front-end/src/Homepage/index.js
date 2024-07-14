@@ -94,7 +94,12 @@ const Homepage = () => {
           setFileList((prevFileList) =>
             prevFileList.filter((file) => file.id !== deletedDocument.id)
           );
-        });        
+        
+          if (window.location.pathname === `/edit/${deletedDocument.id}`) {
+            navigateRef.current("/");
+          }
+        });
+         
       },
       (error) => {
         console.error("Connection error:", error);
@@ -110,7 +115,7 @@ const Homepage = () => {
         }
       }
     };
-  }, [user.jwt]);
+  }, [user.jwt, navigate]);
 
   const handleCardClick = (e, fileId) => {
     if (!e.target.closest(".delete-btn")) {

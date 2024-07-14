@@ -1,12 +1,10 @@
 package ru.cs.korotaev.CollaborativeTextEditor.service
 
-import jakarta.servlet.http.HttpServletResponse
 import org.springframework.messaging.simp.SimpMessagingTemplate
 import org.springframework.stereotype.Service
 import ru.cs.korotaev.CollaborativeTextEditor.dto.DocumentUpdate
 import ru.cs.korotaev.CollaborativeTextEditor.dto.RenameRequest
 import ru.cs.korotaev.CollaborativeTextEditor.model.Document
-import ru.cs.korotaev.CollaborativeTextEditor.model.User
 import ru.cs.korotaev.CollaborativeTextEditor.repository.DocumentRepository
 import ru.cs.korotaev.CollaborativeTextEditor.repository.UserRepository
 import java.io.File
@@ -14,12 +12,12 @@ import java.util.*
 
 @Service
 class DocumentService(
-
     private val documentRepository: DocumentRepository,
     private val userRepository: UserRepository,
     private val simpMessagingTemplate: SimpMessagingTemplate
-
 ) {
+
+    private val activeUsers = mutableMapOf<Long, MutableSet<String>>()
 
     fun updateDocument(update: DocumentUpdate): DocumentUpdate {
         val document = documentRepository.findById(update.id)
@@ -37,6 +35,21 @@ class DocumentService(
         } else {
             throw RuntimeException("File not found")
         }
+    }
+
+    fun addActiveUser(documentId: Long, username: String) {
+        activeUsers.computeIfAbsent(documentId) { mutableSetOf() }.add(username)
+        activeUsers[documentId]?.let { simpMessagingTemplate.convertAndSend("/topic/activeUsers/$documentId", it) }
+        println(activeUsers)
+    }
+
+    fun removeActiveUser(documentId: Long, username: String) {
+        activeUsers[documentId]?.remove(username)
+        activeUsers[documentId]?.let { simpMessagingTemplate.convertAndSend("/topic/activeUsers/$documentId", it) }
+    }
+
+    fun getActiveUsers(documentId: Long): List<String> {
+        return activeUsers[documentId]?.toList() ?: emptyList()
     }
 
     fun getDocumentName(id: Long): String {
@@ -64,11 +77,9 @@ class DocumentService(
         return document
     }
 
-    fun downloadTxt(response: HttpServletResponse, id: Long) {
+    fun downloadTxt(id: Long): ByteArray {
         val content = getDocumentContent(id)
-        response.contentType = "text/plain"
-        response.setHeader("Content-Disposition", "attachment; filename=document.txt")
-        response.writer.write(content)
+        return content.toByteArray()
     }
 
     fun listDocuments(): List<Document> {
@@ -83,7 +94,7 @@ class DocumentService(
 
     fun deleteDocument(id: Long) {
         val document = documentRepository.findById(id)
-            .orElseThrow { RuntimeException("Документ не найден") }
+            .orElseThrow { RuntimeException("Document not found") }
         val filePath = "documents/${id}.txt"
         File(filePath).delete()
         documentRepository.delete(document)

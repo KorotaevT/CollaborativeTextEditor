@@ -6,6 +6,8 @@ import { useInterval } from "../util/useInterval";
 import { useUser } from "../UserProvider";
 import validateToken from "../util/tokenValidator";
 import ajax from "../Services/fetchService";
+import "bootstrap/dist/css/bootstrap.min.css";
+import { Dropdown, Button } from "react-bootstrap";
 
 function DocumentEdit() {
   const { id } = useParams();
@@ -15,13 +17,19 @@ function DocumentEdit() {
   const userRef = useRef(user);
   const [stompClient, setStompClient] = useState(null);
   const [fontSize, setFontSize] = useState("3");
-  const [isConnected, setIsConnected] = useState(false);
+  const [activeUsers, setActiveUsers] = useState([]);
   const [fileExists, setFileExists] = useState(false);
   const [fileName, setFileName] = useState("");
   const [content, setContent] = useState("");
   const [fileList, setFileList] = useState([]);
   const editorRef = useRef(null);
   const savedRangeRef = useRef(null);
+  const [fontFamily, setFontFamily] = useState("Times New Roman");
+  const handleFontFamilyChange = (event) => {
+    const newFontFamily = event.target.value;
+    setFontFamily(newFontFamily);
+    document.execCommand("fontName", false, newFontFamily);
+  };
 
   useEffect(() => {
     userRef.current = user;
@@ -51,74 +59,107 @@ function DocumentEdit() {
   useEffect(() => {
     const socket = new SockJS("/ws");
     const client = Stomp.over(() => socket);
-    
+
     client.reconnect_delay = 60000;
-    
+
     client.connect(
-        {
-            Authorization: `Bearer ${user.jwt}`,
-        },
-        () => {
-            setIsConnected(true);
-            setStompClient(client);
+      {
+        Authorization: `Bearer ${user.jwt}`,
+      },
+      () => {
+        setStompClient(client);
 
-            ajax("/api/listDocuments", "GET", user.jwt)
-                .then((data) => setFileList(data))
-                .catch((error) => console.error("Error fetching document list:", error));
+        ajax("/api/listDocuments", "GET", user.jwt)
+          .then((data) => setFileList(data))
+          .catch((error) =>
+            console.error("Error fetching document list:", error)
+          );
 
-            client.subscribe(`/topic/updates/${id}`, (message) => {
-                if (message.body) {
-                    const newContent = JSON.parse(message.body).content;
-                    if (editorRef.current.innerHTML !== newContent) {
-                        setContent(newContent);
-                    }
-                }
-            });
-
-            client.subscribe("/topic/renameDocument", (message) => {
-                const data = JSON.parse(message.body);
-                setFileList((prevFileList) =>
-                    prevFileList.map((file) =>
-                        file.id === data.id ? { ...file, name: data.newName } : file
-                    )
-                );
-            });
-
-            client.subscribe("/topic/newDocument", (message) => {
-                const newFile = JSON.parse(message.body);
-                setFileList((prevFileList) => [...prevFileList, newFile]);
-            });
-
-            if (id) {
-                ajax(`/api/getDocument/${id}`, "GET", user.jwt)
-                    .then((data) => {
-                        setContent(data.content);
-                        setFileName(data.name);
-                        setFileExists(true);
-                    })
-                    .catch((error) => {
-                        console.error(error);
-                        setFileExists(false);
-                    });
-            } else {
-                setFileExists(false);
+        client.subscribe(`/topic/updates/${id}`, (message) => {
+          if (message.body) {
+            const newContent = JSON.parse(message.body).content;
+            if (editorRef.current.innerHTML !== newContent) {
+              setContent(newContent);
             }
-        },
-        (error) => {
-            console.error("Connection error:", error);
+          }
+        });
+
+        client.subscribe("/topic/renameDocument", (message) => {
+          const data = JSON.parse(message.body);
+          setFileList((prevFileList) =>
+            prevFileList.map((file) =>
+              file.id === data.id ? { ...file, name: data.newName } : file
+            )
+          );
+        });
+
+        client.subscribe("/topic/newDocument", (message) => {
+          const newFile = JSON.parse(message.body);
+          setFileList((prevFileList) => [...prevFileList, newFile]);
+        });
+
+        client.subscribe("/topic/deleteDocument", (message) => {
+          const deletedDocument = JSON.parse(message.body);
+          if (deletedDocument.id === id) {
+            alert("Этот файл был удален.");
+            navigateRef.current("/");
+          }
+        });
+
+        client.subscribe(`/topic/activeUsers/${id}`, (message) => {
+          const activeUsers = JSON.parse(message.body);
+          setActiveUsers(activeUsers);
+          console.log(activeUsers);
+        });
+
+        if (id) {
+          ajax(`/api/getDocument/${id}`, "GET", user.jwt)
+            .then((data) => {
+              setContent(data.content);
+              setFileName(data.name);
+              setFileExists(true);
+              console.log("Sending connect message");
+              client.send(
+                `/app/activeUsers/${id}`,
+                {},
+                JSON.stringify({
+                  username: userRef.current.username,
+                  action: "connect",
+                })
+              );
+            })
+            .catch((error) => {
+              console.error(error);
+              setFileExists(false);
+            });
+        } else {
+          setFileExists(false);
         }
+      },
+      (error) => {
+        console.error("Connection error:", error);
+      }
     );
 
     return () => {
-        if (client) {
-            try {
-                client.disconnect();
-            } catch (error) {
-                console.error("Disconnection error:", error);
-            }
+      if (client) {
+        try {
+          console.log("Sending disconnect message");
+          client.send(
+            `/app/activeUsers/${id}`,
+            {},
+            JSON.stringify({
+              username: userRef.current.username,
+              action: "disconnect",
+            })
+          );
+          client.disconnect();
+        } catch (error) {
+          console.error("Disconnection error:", error);
         }
+      }
     };
-}, [id, user.jwt]);
+  }, [id, user.jwt]);
 
   useEffect(() => {
     const file = fileList.find((file) => file.id === id);
@@ -144,9 +185,9 @@ function DocumentEdit() {
       id,
       name: fileName,
       content: updateContent,
-      creatorUsername: "123",
+      creatorUsername: "creator",
     };
-  
+
     if (stompClient && stompClient.connected) {
       try {
         stompClient.send(
@@ -159,7 +200,7 @@ function DocumentEdit() {
       }
     }
   };
-  
+
   const handleInput = () => {
     saveSelection();
     const newContent = editorRef.current.innerHTML;
@@ -190,8 +231,6 @@ function DocumentEdit() {
     document.execCommand("fontSize", false, newSize);
     restoreSelection();
   };
-
-  const handleMouseDown = () => saveSelection();
 
   const handleKeyDown = (event) => {
     if (event.key === "Enter") {
@@ -337,6 +376,23 @@ function DocumentEdit() {
     }
   };
 
+  const handleDeleteFile = async () => {
+    const confirmDelete = window.confirm(
+      "Вы уверены, что хотите удалить этот файл?"
+    );
+    if (confirmDelete) {
+      try {
+        await ajax(`/api/deleteDocument/${id}`, "DELETE", user.jwt).then(() => {
+          stompClient.send("/app/deleteDocument", {}, JSON.stringify({ id }));
+          navigateRef.current("/");
+        });
+      } catch (error) {
+        console.error("Ошибка при удалении файла:", error);
+        alert("Ошибка при удалении файла");
+      }
+    }
+  };
+
   const handleAddNewFile = async () => {
     const newFileName = prompt("Введите имя нового файла:");
     if (newFileName) {
@@ -362,97 +418,143 @@ function DocumentEdit() {
     }
   };
 
-  const fontSizes = [
-    { value: "1", label: "8pt" },
-    { value: "2", label: "10pt" },
-    { value: "3", label: "12pt" },
-    { value: "4", label: "14pt" },
-    { value: "5", label: "18pt" },
-    { value: "6", label: "24pt" },
-    { value: "7", label: "36pt" },
-    { value: "8", label: "48pt" },
-    { value: "9", label: "72pt" },
-  ];
-
   const handleClearDocument = () => {
-    setContent("");
-    sendUpdate("");
+    if (window.confirm("Вы уверены, что хотите очистить всё?")) {
+      setContent("");
+      sendUpdate("");
+    }
   };
 
   return (
-    <div className="App">
-      <div className="header">
-        <button className="header-button">
-          Файл
-          <div className="dropdown-menu">
-            <button onClick={() => handleFileAction("rename")}>
-              Переименовать
-            </button>
-            <button onClick={() => handleFileAction("new")}>Новый файл</button>
-            <button onClick={() => handleFileAction("downloadTxt")}>
-              Скачать .txt
-            </button>
-          </div>
-        </button>
-        <div className="filename">{fileName}</div>
-        <button
-          className="header-button"
-          onClick={() => {
-            navigateRef.current("/");
-          }}
-        >
-          Назад
-        </button>
+    <div className="App container">
+      <div className="header row">
+        <div className="col d-flex justify-content-between align-items-center">
+          <Dropdown>
+            <Dropdown.Toggle variant="primary" id="fileDropdown">
+              Файл
+            </Dropdown.Toggle>
+            <Dropdown.Menu>
+              <Dropdown.Item onClick={() => handleFileAction("rename")}>
+                Переименовать
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => handleFileAction("new")}>
+                Новый файл
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => handleFileAction("downloadTxt")}>
+                Скачать .txt
+              </Dropdown.Item>
+              <Dropdown.Item onClick={handleDeleteFile}>
+                Удалить файл
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown>
+          <div className="filename mx-2">Документ: {fileName}</div>
+          <Dropdown>
+            <Dropdown.Toggle variant="primary" id="activeUsersDropdown">
+              Активные пользователи
+            </Dropdown.Toggle>
+            <Dropdown.Menu style={{ minWidth: "fit-content" }}>
+              {activeUsers.length > 0 ? (
+                activeUsers.map((user, index) => (
+                  <Dropdown.Item
+                    key={index}
+                    style={{
+                      width: "250px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {user}
+                  </Dropdown.Item>
+                ))
+              ) : (
+                <Dropdown.Item
+                  disabled
+                  style={{
+                    width: "250px",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  Нет активных пользователей
+                </Dropdown.Item>
+              )}
+            </Dropdown.Menu>
+          </Dropdown>
+
+          <Button
+            variant="primary"
+            className="header-button mx-2"
+            onClick={() => navigate("/")}
+          >
+            Назад
+          </Button>
+        </div>
       </div>
       {fileExists ? (
-        <div className="editor-container">
-          <div className="toolbar">
-            <button
-              className="toolbar-button"
-              onClick={() => applyFormat("bold")}
-            >
-              Bold
-            </button>
-            <button
-              className="toolbar-button"
-              onClick={() => applyFormat("italic")}
-            >
-              Italic
-            </button>
-            <button
-              className="toolbar-button"
-              onClick={() => applyFormat("underline")}
-            >
-              Underline
-            </button>
-            <button className="toolbar-button" onClick={handleClearDocument}>
-              Очистить всё
-            </button>
-            <select
-              value={fontSize}
-              onChange={handleFontSizeChange}
-              onMouseDown={handleMouseDown}
-            >
-              {fontSizes.map((size) => (
-                <option
-                  key={size.value}
-                  value={size.value}
-                  onMouseEnter={() => setFontSize(size.value)}
-                >
-                  {size.label}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="row justify-content-center">
+          <div className="col-8 editor-container">
+            <div className="toolbar mb-2">
+              <Button
+                className="toolbar-button"
+                onClick={() => applyFormat("bold")}
+              >
+                Bold
+              </Button>
+              <Button
+                className="toolbar-button"
+                onClick={() => applyFormat("italic")}
+              >
+                Italic
+              </Button>
+              <Button
+                className="toolbar-button"
+                onClick={() => applyFormat("underline")}
+              >
+                Underline
+              </Button>
+              <Button className="toolbar-button" onClick={handleClearDocument}>
+                Очистить всё
+              </Button>
+              <select
+                className="form-control d-inline-block w-auto"
+                value={fontFamily}
+                onChange={handleFontFamilyChange}
+              >
+                <option value="Colibri">Colibri</option>
+                <option value="Arial">Arial</option>
+                <option value="Times New Roman">Times New Roman</option>
+                <option value="Courier New">Courier New</option>
+              </select>
+              <select
+                className="form-control d-inline-block w-auto"
+                value={fontSize}
+                onChange={handleFontSizeChange}
+              >
+                <option value="1">8pt</option>
+                <option value="2">10pt</option>
+                <option value="3">12pt</option>
+                <option value="4">14pt</option>
+                <option value="5">18pt</option>
+                <option value="6">24pt</option>
+                <option value="7">36pt</option>
+                <option value="8">48pt</option>
+                <option value="9">72pt</option>
+              </select>
+            </div>
 
-          <div
-            className="editor"
-            contentEditable
-            ref={editorRef}
-            onInput={handleInput}
-            onKeyDown={handleKeyDown}
-            dangerouslySetInnerHTML={{ __html: content }}
-          ></div>
+            <div
+              className="editor form-control mb-2"
+              contentEditable
+              ref={editorRef}
+              onInput={handleInput}
+              onKeyDown={handleKeyDown}
+              style={{ fontFamily }}
+              dangerouslySetInnerHTML={{ __html: content }}
+            ></div>
+          </div>
         </div>
       ) : (
         <div className="no-file">

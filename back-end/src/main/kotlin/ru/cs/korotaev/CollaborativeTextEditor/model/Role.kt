@@ -8,7 +8,6 @@ import org.springframework.security.core.GrantedAuthority
 
 @Entity
 data class Role(
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long,
@@ -20,5 +19,4 @@ data class Role(
     override fun getAuthority(): String {
         return name
     }
-
 }

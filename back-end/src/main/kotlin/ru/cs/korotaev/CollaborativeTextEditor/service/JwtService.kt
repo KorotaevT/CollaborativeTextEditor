@@ -19,9 +19,7 @@ import java.util.stream.Collectors
 
 @Service
 class JwtService(
-
     private val userRepository: UserRepository
-
 ) {
 
     @Value("\${jwt.secret}")

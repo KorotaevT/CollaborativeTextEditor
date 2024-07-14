@@ -31,6 +31,23 @@ class DocumentController(
         return documentService.updateDocument(update)
     }
 
+    @MessageMapping("/activeUsers/{documentId}")
+    @SendTo("/topic/activeUsers/{id}")
+    fun handleActiveUsers(@DestinationVariable documentId: Long, payload: Map<String, String>) {
+        val username = payload["username"] ?: return
+        val action = payload["action"] ?: return
+
+        if (action == "connect") {
+            documentService.addActiveUser(documentId, username)
+        } else if (action == "disconnect") {
+            documentService.removeActiveUser(documentId, username)
+        }
+    }
+
+    @GetMapping("/activeUsers/{id}")
+    fun getActiveUsers(@PathVariable id: Long): List<String> {
+        return documentService.getActiveUsers(id)
+    }
 
     @GetMapping("/getDocument/{id}")
     fun getDocument(@PathVariable id: Long): DocumentUpdate {
@@ -40,7 +57,7 @@ class DocumentController(
             val document = documentService.getDocumentById(id)
             DocumentUpdate(id, name, content, document.get().creator.username)
         } catch (e: RuntimeException) {
-            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Файл не найден", e)
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found", e)
         }
     }
 
@@ -58,7 +75,14 @@ class DocumentController(
 
     @GetMapping("/downloadTxt/{id}")
     fun downloadTxt(response: HttpServletResponse, @PathVariable id: Long) {
-        documentService.downloadTxt(response, id)
+        try {
+            val content = documentService.downloadTxt(id)
+            response.contentType = "text/plain"
+            response.setHeader("Content-Disposition", "attachment; filename=document.txt")
+            response.outputStream.write(content)
+        } catch (e: RuntimeException) {
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found", e)
+        }
     }
 
     @GetMapping("/listDocuments")
@@ -83,7 +107,7 @@ class DocumentController(
             documentService.deleteDocument(id)
             ResponseEntity.ok(id)
         } catch (e: RuntimeException) {
-            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Документ не найден", e)
+            throw ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found", e)
         }
     }
 

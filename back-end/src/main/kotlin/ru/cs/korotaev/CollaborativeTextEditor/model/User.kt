@@ -16,7 +16,6 @@ import java.util.Collections
 @Entity
 @Table(name = "AppUser")
 data class User(
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long,
@@ -33,7 +32,6 @@ data class User(
     @JsonIgnore
     @Column(name = "password", nullable = false)
     var password: String,
-
 ): UserDetails {
 
     override fun isAccountNonExpired(): Boolean {
